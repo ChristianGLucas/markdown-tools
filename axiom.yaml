@@ -1,0 +1,58 @@
+name: christiangeorgelucas/markdown-tools
+version: 0.1.0
+language: csharp
+description: Composable Axiom Markdown-processing nodes — render to HTML, extract plain text, extract structural outline (headings/links/code-blocks/images), extract YAML front matter, and roundtrip-normalize — over a single MarkdownDoc envelope, wrapping the BSD-2-Clause Markdig CommonMark engine with pinned pipeline extensions. Stateless, deterministic, offline.
+nodes:
+    - name: RenderHtml
+      input: MarkdownDoc
+      output: HtmlResult
+      description: >-
+        Render a Markdown document to HTML using Markdig's CommonMark-compliant
+        parser/renderer, with the requested pipeline extensions (extensions
+        list and/or advanced_extensions bundle) applied — e.g. GFM tables,
+        task lists, footnotes, autolinks, strikethrough, definition lists,
+        smarty pants. Deterministic for a fixed (markdown, extensions) pair.
+        An unrecognized extension name returns INVALID_ARGUMENT.
+    - name: ExtractPlainText
+      input: MarkdownDoc
+      output: TextResult
+      description: >-
+        Extract a Markdown document's visible plain text with all formatting
+        markup (emphasis markers, link syntax, heading hashes, code fences,
+        HTML tags) stripped, using Markdig's plain-text renderer. Useful for
+        indexing, summarization, or word/length counting over Markdown
+        source without hand-rolled markup stripping.
+    - name: ExtractOutline
+      input: MarkdownDoc
+      output: OutlineResult
+      description: >-
+        Parse a Markdown document into Markdig's abstract syntax tree and
+        return its structural elements in document order: headings (with
+        level and auto-generated anchor id when autoidentifiers is enabled),
+        hyperlinks, fenced/indented code blocks (with language tag), and
+        images. Lets a caller build a table of contents, a link inventory,
+        or a code-block extract without re-parsing the document themselves.
+    - name: ExtractFrontMatter
+      input: MarkdownDoc
+      output: FrontMatterResult
+      description: >-
+        Split a Markdown document into its leading `---`-delimited YAML
+        front matter block (if present) and the remaining body, using
+        Markdig's YAML front matter extension to locate the block. This
+        node always enables that extension internally regardless of the
+        request's extensions/advanced_extensions (front matter detection is
+        its whole purpose, and Markdig's advanced-extensions bundle does
+        NOT include it). Returns the raw front matter text verbatim; this
+        package does not parse it as YAML.
+    - name: NormalizeMarkdown
+      input: MarkdownDoc
+      output: MarkdownResult
+      description: >-
+        Re-render a Markdown document back to Markdown through Markdig's
+        NormalizeRenderer, producing a canonicalized form (consistent
+        heading style, list marker spacing, emphasis characters) with the
+        requested pipeline extensions applied. Idempotent: normalizing
+        already-normalized output returns it unchanged.
+build:
+    nuget_deps:
+        - Markdig:1.3.2

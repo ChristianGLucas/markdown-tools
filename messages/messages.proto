@@ -1,0 +1,169 @@
+// This file defines the data contracts (messages) for your Axiom package.
+// Every node's --input and --output refers to a message defined here.
+//
+// Run `axiom create message <Name>` to scaffold a new message below.
+// Run `axiom generate` to compile these definitions into language bindings in gen/.
+//
+// DOCUMENTATION
+//   Comments written directly above a message or field declaration are extracted
+//   automatically at publish time and shown in the Axiom registry as documentation.
+//   Write your descriptions there — no separate doc files needed.
+//
+//   Leading comment  (no blank line before the declaration) → registry description ✓
+//   Detached comment (blank line before the declaration)    → ignored by registry  ✗
+//
+// This file is yours to edit. Axiom only appends new message blocks — it never
+// overwrites or removes content you have written.
+
+syntax = "proto3";
+
+package christiangeorgelucas.markdown_tools;
+
+option csharp_namespace = "Gen";
+
+// The single canonical envelope every node in this package consumes: a
+// Markdown source document plus the pipeline extensions to enable while
+// parsing/rendering it. Every node builds its Markdig pipeline the same way
+// from these two fields, so a given (markdown, extensions,
+// advanced_extensions) triple is fully deterministic across every node.
+message MarkdownDoc {
+  // The Markdown source text (CommonMark, optionally extended).
+  string markdown = 1;
+  // Pipeline extensions to enable by name, matching Markdig's own extension
+  // identifiers (case-insensitive): "advanced" (bundle, same as setting
+  // advanced_extensions=true), "pipetables", "gridtables", "tasklists",
+  // "footnotes", "footers", "citations", "abbreviations", "autoidentifiers",
+  // "autolinks", "definitionlists", "emphasisextras" (strikethrough ~~,
+  // subscript, superscript, inserted, marked), "figures", "mathematics",
+  // "customcontainers", "smartypants", "yaml" (YAML front matter),
+  // "diagrams", "genericattributes", "listextras", "globalization",
+  // "alertblocks" (GitHub-style [!NOTE]/[!WARNING]/...), "pragmalines",
+  // "softlinebreakashardline". Unknown names return a structured
+  // INVALID_ARGUMENT error rather than being silently ignored, so a typo is
+  // never silent. (NoFollowLinks and NonAsciiNoEscape are deliberately not
+  // exposed: the former is obsolete upstream, the latter is an IE/Edge-only
+  // workaround Markdig's own docs say not to use otherwise.)
+  repeated string extensions = 2;
+  // Shortcut equivalent to Markdig's UseAdvancedExtensions() — enables
+  // every extension above EXCEPT Bootstrap, Emoji, SmartyPants, YAML front
+  // matter, and softline-as-hardline (Markdig's own documented exclusion
+  // list). Request those individually via `extensions` if needed. Any name
+  // also present in `extensions` is simply redundant with this.
+  bool advanced_extensions = 3;
+}
+
+// Output of RenderHtml: the rendered HTML for a Markdown document.
+message HtmlResult {
+  // The rendered HTML. Empty when `error` is set.
+  string html = 1;
+  // A stable structured error token (see RenderHtml's description), empty
+  // on success.
+  string error = 2;
+}
+
+// Output of ExtractPlainText: the Markdown document's visible text with all
+// formatting markup stripped.
+message TextResult {
+  // The extracted plain text. Empty when `error` is set.
+  string text = 1;
+  // A stable structured error token, empty on success.
+  string error = 2;
+}
+
+// A single heading extracted from a Markdown document's AST.
+message Heading {
+  // Heading level, 1-6 (# through ######).
+  int32 level = 1;
+  // The heading's rendered inline text content.
+  string text = 2;
+  // The auto-generated anchor id for this heading (populated when the
+  // "autoidentifiers" extension, or advanced_extensions, is enabled;
+  // otherwise empty).
+  string id = 3;
+}
+
+// A single hyperlink extracted from a Markdown document's AST (an inline
+// link/reference — not an autolink-extension bare URL, which is reported
+// separately would require the same [text](url) shape so is included here
+// too when the "autolinks" extension turns a bare URL into a link inline).
+message MdLink {
+  // The link's rendered inline text (empty for an image; see `images`).
+  string text = 1;
+  // The link target URL, exactly as written in the source.
+  string url = 2;
+  // The optional link title (`"..."` after the URL), empty if absent.
+  string title = 3;
+}
+
+// A single fenced or indented code block extracted from a Markdown
+// document's AST.
+message MdCodeBlock {
+  // The fenced code block's info-string language tag (e.g. "python",
+  // "go"). Empty for an indented code block or a fenced block with no
+  // info string.
+  string language = 1;
+  // The code block's literal text content, exactly as written (no
+  // trimming beyond Markdig's own block-parsing rules).
+  string content = 2;
+}
+
+// A single image reference extracted from a Markdown document's AST.
+message MdImage {
+  // The image's alt text.
+  string alt = 1;
+  // The image source URL, exactly as written in the source.
+  string url = 2;
+  // The optional image title, empty if absent.
+  string title = 3;
+}
+
+// Output of ExtractOutline: the structural elements of a Markdown document,
+// in document order within each list.
+message OutlineResult {
+  // Every heading (ATX `#`/`##`/... and Setext) in document order.
+  repeated Heading headings = 1;
+  // Every hyperlink in document order.
+  repeated MdLink links = 2;
+  // Every fenced/indented code block in document order.
+  repeated MdCodeBlock code_blocks = 3;
+  // Every image reference in document order.
+  repeated MdImage images = 4;
+  // A stable structured error token, empty on success. On error every
+  // repeated field above is empty.
+  string error = 5;
+}
+
+// Output of ExtractFrontMatter: the YAML front matter block (if any) and
+// the remaining document body.
+message FrontMatterResult {
+  // True when the document opens with a `---`-delimited YAML front matter
+  // block. ExtractFrontMatter always enables Markdig's YAML front matter
+  // extension internally (in addition to any requested extensions/
+  // advanced_extensions) since detecting front matter is this node's whole
+  // purpose — note that advanced_extensions alone does NOT include it
+  // (Markdig's own documented exclusion), so this node compensates rather
+  // than silently returning has_front_matter=false for a caller who only
+  // set advanced_extensions=true.
+  bool has_front_matter = 1;
+  // The raw front matter block content (the YAML text between the `---`
+  // delimiters, delimiters excluded, NOT parsed/validated as YAML — this
+  // package does not include a YAML parser). Empty when has_front_matter
+  // is false.
+  string front_matter = 2;
+  // The document body with the front matter block (and its delimiters)
+  // removed. Equal to the original `markdown` input when has_front_matter
+  // is false.
+  string body = 3;
+  // A stable structured error token, empty on success.
+  string error = 4;
+}
+
+// Output of NormalizeMarkdown: a roundtrip-normalized rendering of the
+// input Markdown back to Markdown (consistent heading style, list marker
+// spacing, emphasis characters, etc. per Markdig's NormalizeRenderer).
+message MarkdownResult {
+  // The normalized Markdown text. Empty when `error` is set.
+  string markdown = 1;
+  // A stable structured error token, empty on success.
+  string error = 2;
+}
