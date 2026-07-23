@@ -1,6 +1,6 @@
 # markdown-tools
 
-Composable [Axiom](https://axiom.dev) nodes for Markdown processing — render
+Composable [Axiom](https://axiomide.com) nodes for Markdown processing — render
 to HTML, extract plain text, extract structural outline, extract YAML front
 matter, and roundtrip-normalize — over a single `MarkdownDoc` envelope,
 wrapping the BSD-2-Clause [Markdig](https://github.com/xoofx/markdig)
